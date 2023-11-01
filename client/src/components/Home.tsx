@@ -7,8 +7,6 @@ import {
   SxProps,
   Typography,
 } from "@mui/material";
-import { useContext, useEffect } from "react";
-import { AppContext } from "../AppContext";
 import config from "../../../config.json";
 
 type SensorType = keyof typeof config.types;
@@ -21,32 +19,12 @@ const paperSx: SxProps = {
 };
 
 export function Home() {
-  const { inputMode, statusCode, graphs, setGraphs, graphData } =
-    useContext(AppContext);
-
-  function selectSensor(idx: number, on: boolean) {
-    if (on) {
-      if (!graphs.includes(idx) && graphs.length < 4) {
-        setGraphs([...graphs, idx].sort((a, b) => a - b));
-      }
-    } else {
-      setGraphs(graphs.filter((c) => c !== idx));
-    }
-  }
-
   const sensorValues = config.sensors.flatMap((sensor) => {
     return config.types[sensor.type as SensorType].datatypes.map((d) => ({
       name: sensor.name,
       datatype: d,
     }));
   });
-
-  useEffect(() => {
-    setGraphs([]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [inputMode]);
-
-  console.log(graphData);
 
   const statusChips = [
     <Chip label="Disconnected" color="error" />,
@@ -72,7 +50,7 @@ export function Home() {
             marginBottom={1.5}
           >
             <Typography variant="h6">Status</Typography>
-            {statusChips[statusCode]}
+            {statusChips[1]}
           </Stack>
           <Typography variant="h6" marginBottom={1.5}>
             Sensors
@@ -87,9 +65,8 @@ export function Home() {
               <Checkbox
                 size="small"
                 sx={{ padding: 0.5 }}
-                checked={graphs.includes(i)}
-                disabled={statusCode !== 2}
-                onChange={(e) => selectSensor(i, e.target.checked)}
+                checked={false}
+                // onChange={(e) => selectSensor(i, e.target.checked)}
               />
               <Typography variant="body2" marginLeft={0.5}>
                 {sensor.name}
@@ -103,9 +80,6 @@ export function Home() {
           <Typography variant="h6" marginBottom={1.5}>
             Data
           </Typography>
-          {graphs.map((idx, i) => (
-            <p key={i}>{sensorValues[idx].name}</p> // temporary placeholder for graphs
-          ))}
         </Paper>
       </Grid>
     </Grid>

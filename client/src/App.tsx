@@ -3,15 +3,12 @@ import { useEffect, useMemo, useState } from "react";
 import { AppContext } from "./AppContext";
 import { Home } from "./components/Home";
 import { NavBar } from "./components/NavBar";
-import { ClientMessage, GraphData, InputMode, ServerMessage } from "./types";
+import { InputMode, ServerMessage } from "./types";
 
 function App() {
   const [ready, setReady] = useState(false);
   const [inputMode, setInputMode] = useState<InputMode>();
   const [ports, setPorts] = useState<string[]>([]);
-  const [statusCode, setStatusCode] = useState(0);
-  const [graphs, setGraphs] = useState<number[]>([]);
-  const [graphData, setGraphData] = useState<GraphData>();
 
   const ws = useMemo(() => {
     const ws = new WebSocket("ws://localhost:3001");
@@ -24,27 +21,27 @@ function App() {
   }, []);
 
   useEffect(() => {
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ inputMode }));
+    }
+  }, [inputMode, ws, ws.readyState]);
+
+  useEffect(() => {
     ws.onmessage = (e) => {
       const data: ServerMessage = JSON.parse(e.data);
-      if (data.init) {
+      console.log(data);
+
+      setReady(true);
+
+      if (data.inputMode && data.inputMode?.name !== inputMode?.name) {
         setInputMode(data.inputMode);
-        setReady(true);
       }
 
-      if (ports.toString() !== data.ports.toString()) {
+      if (data.ports && ports.toString() !== data.ports.toString()) {
         setPorts(data.ports);
       }
-
-      if (graphData?.x.toString() !== data.graphData?.x.toString()) {
-        setGraphData(data.graphData);
-      }
-
-      setStatusCode(data.statusCode);
-
-      const msg: ClientMessage = { inputMode, graphs };
-      ws.send(JSON.stringify(msg));
     };
-  }, [inputMode, ports, graphs, graphData, ws]);
+  }, [inputMode, ports, ws]);
 
   return (
     <AppContext.Provider
@@ -53,10 +50,6 @@ function App() {
         inputMode,
         setInputMode,
         ports,
-        statusCode,
-        graphs,
-        setGraphs,
-        graphData,
       }}
     >
       <Stack height="100vh">

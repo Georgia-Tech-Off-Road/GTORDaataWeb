@@ -1,54 +1,13 @@
+import asyncio
+import json
 import serial
-import struct
-import threading
-import time
-
-from config import config
-
-size_dict = {
-  'float32': 4,
-}
-
-
-class Data:
-  def __init__(self):
-    self.reset()
-  
-
-  def reset(self):
-    self.start_time = None
-
-    self.millis = []
-    self.data = []
-    for sensor in config['sensors']:
-      datatypes = config['types'][sensor['type']]['datatypes']
-      for datatype in datatypes:
-        self.data.append([])
-
-
-  def add_entry(self, millis: int, entry: list[int]):
-    if self.start_time is None:
-      self.start_time = time.time() * 1000
-
-    self.millis.append(time.time() * 1000 - self.start_time)
-    for i, val in enumerate(entry):
-      self.data[i].append(val)
-
-
-  def get_graph_data(self, graphs: list[int]):
-    graph_data = {
-      'x': self.millis,
-      'y': [],
-    }
-    for g in graphs:
-      graph_data['y'].append(self.data[g])
-    return graph_data
+from websockets.server import WebSocketServerProtocol
 
 
 class DataImport:
-  def __init__(self, input_mode: dict, data: Data):
+  def __init__(self, input_mode: dict, websocket: WebSocketServerProtocol):
     self.input_mode = input_mode
-    self.data = data
+    self.websocket = websocket
     self.teensy_ser = None
 
     self.start_code = [0xee, 0xe0]
@@ -56,27 +15,32 @@ class DataImport:
     self.current_packet = []
     self.packets_received = 0
 
-    self.expected_size = 4 # length of millis
+    self.stop_thread = asyncio.Event()
 
-    for sensor in config['sensors']:
-      datatypes = config['types'][sensor['type']]['datatypes']
-      for datatype in datatypes:
-        self.expected_size += size_dict[datatype]
-
-    self.stop_thread = threading.Event()
-
-    self.read_data_thread = threading.Thread(target=self.read_data, daemon=True)
-    self.read_data_thread.start()
+    self.read_data_task = asyncio.create_task(self.read_data())
 
     print(f'Started data import with mode {input_mode}')
 
 
-  def read_data(self):
+  async def receive_packet(self):
+    self.packets_received += 1
+    msg = {
+      'packet': self.current_packet,
+    }
+    await self.websocket.send(json.dumps(msg))
+    print(f'Received packet {self.packets_received} of length {len(self.current_packet)}')
+
+
+  async def read_data(self):
     while not self.stop_thread.is_set():
       if self.input_mode['name'] == 'FAKE':
-        pass
+        self.current_packet = self.start_code + [0x00, 0x00, 0x00, 0x00, 0x00, 0x00] + self.end_code
+        await self.receive_packet()
+        await asyncio.sleep(2.0)
+
       elif self.input_mode['name'] == 'BIN':  
         pass
+
       else:
         try:
           if self.teensy_ser is None:
@@ -90,7 +54,7 @@ class DataImport:
 
               if len(self.current_packet) >= len(self.end_code) and self.current_packet[-len(self.end_code):] == self.end_code:
                 if self.current_packet[:len(self.start_code)] == self.start_code:
-                  self.unpacketize()
+                  await self.receive_packet()
 
                 self.current_packet.clear()
         except serial.SerialException:
@@ -98,33 +62,7 @@ class DataImport:
         except Exception as e:
           print(f'Error while reading from serial: {e}')
       
-      time.sleep(0.02)
-
-  
-  def unpacketize(self):
-    data = self.current_packet[len(self.start_code):-len(self.end_code)]
-
-    if len(data) == self.expected_size:
-      millis = int.from_bytes(data[:4], 'little')
-      data = data[4:]
-
-      entry = []
-      i = 0
-      for sensor in config['sensors']:
-        datatypes = config['types'][sensor['type']]['datatypes']
-        for datatype in datatypes:
-          raw_val = data[i:i+size_dict[datatype]]
-          if datatype == 'float32':
-            val = struct.unpack('f', bytes(raw_val))[0]
-            entry.append(val)
-            
-          i += size_dict[datatype]
-      self.data.add_entry(millis, entry)
-
-      self.packets_received += 1
-      print(f'Received packet {self.packets_received} at time {millis}')
-    else:
-      print(f'Expected {self.expected_size} bytes, got {len(data)}')
+      await asyncio.sleep(0.02)
 
 
   def connected(self):
@@ -133,10 +71,9 @@ class DataImport:
     return self.teensy_ser is not None and self.teensy_ser.is_open
   
 
-  def close(self):
-    self.data.reset()
+  async def close(self):
     self.stop_thread.set()
-    self.read_data_thread.join()
+    await self.read_data_task
 
     if self.teensy_ser is not None:
       self.teensy_ser.close()
