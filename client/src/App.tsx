@@ -3,12 +3,13 @@ import { useEffect, useMemo, useState } from "react";
 import { AppContext } from "./AppContext";
 import { Home } from "./components/Home";
 import { NavBar } from "./components/NavBar";
-import { InputMode, ServerMessage } from "./types";
+import { Data, InputMode, ServerMessage } from "./types";
 
 function App() {
   const [ready, setReady] = useState(false);
   const [inputMode, setInputMode] = useState<InputMode>();
   const [ports, setPorts] = useState<string[]>([]);
+  const [data, setData] = useState<Data>({} as Data);
 
   const ws = useMemo(() => {
     const ws = new WebSocket("ws://localhost:3001");
@@ -40,6 +41,10 @@ function App() {
       if (data.ports && ports.toString() !== data.ports.toString()) {
         setPorts(data.ports);
       }
+
+      if (data.packet) {
+        // unpacketize(data.packet, setData);
+      }
     };
   }, [inputMode, ports, ws]);
 
@@ -50,6 +55,7 @@ function App() {
         inputMode,
         setInputMode,
         ports,
+        data,
       }}
     >
       <Stack height="100vh">

@@ -6,9 +6,14 @@ export type InputMode = {
 export type ServerMessage = {
   inputMode?: InputMode;
   ports?: string[];
+  packet?: number[];
 };
 
 export type ClientMessage = {
   inputMode?: InputMode;
   graphs: number[];
+};
+
+export type Data = {
+  [key: number]: number[][];
 };
