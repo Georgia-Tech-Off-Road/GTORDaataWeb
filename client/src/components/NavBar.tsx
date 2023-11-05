@@ -6,30 +6,36 @@ import {
   Toolbar,
   Typography,
 } from "@mui/material";
-import { ChangeEvent, useContext, useState } from "react";
-import { AppContext } from "../AppContext";
+import { ChangeEvent, useState } from "react";
+import { useAppDispatch, useAppSelector } from "../hooks";
+import { setInputMode } from "../store/inputSlice";
 
-export function NavBar() {
-  const { ready, inputMode, setInputMode, ports } = useContext(AppContext);
+interface Props {
+  ready: boolean;
+}
 
+export function NavBar(props: Props) {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const inputMode = useAppSelector((state) => state.input.inputMode);
+  const ports = useAppSelector((state) => state.input.ports);
+  const dispatch = useAppDispatch();
 
   function selectFile(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (file) {
       console.log(file);
-      setInputMode({ name: "BIN", data: new Uint8Array() });
+      dispatch(setInputMode({ name: "BIN", data: new Uint8Array() }));
     }
     setAnchorEl(null);
   }
 
   function fakeInputMode() {
-    setInputMode({ name: "FAKE" });
+    dispatch(setInputMode({ name: "FAKE" }));
     setAnchorEl(null);
   }
 
   function comInputMode(name: string) {
-    setInputMode({ name });
+    dispatch(setInputMode({ name }));
     setAnchorEl(null);
   }
 
@@ -40,7 +46,7 @@ export function NavBar() {
           GTOR Daata
         </Typography>
         <div style={{ flexGrow: 1 }}></div>
-        {ready && (
+        {props.ready && (
           <>
             <Typography variant="button" marginRight={0.5}>
               Input:

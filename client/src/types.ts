@@ -9,11 +9,6 @@ export type ServerMessage = {
   packet?: number[];
 };
 
-export type ClientMessage = {
-  inputMode?: InputMode;
-  graphs: number[];
-};
-
 export type Data = {
   [key: number]: number[][];
 };
