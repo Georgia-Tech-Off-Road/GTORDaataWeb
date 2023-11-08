@@ -1,18 +1,129 @@
 import { PayloadAction, createSlice } from "@reduxjs/toolkit";
 import { Data } from "../types";
+import { sensors } from "../util/sensors";
+
+const startCode = 0xeee0;
 
 export interface DataState {
   data: Data;
+  isSendingData: boolean;
+  isReceivingData: boolean;
+  expectedSize: number;
+  currentSensors: number[];
 }
 
 export const dataSlice = createSlice({
   name: "data",
   initialState: {
     data: {},
+    isSendingData: false,
+    isReceivingData: false,
+    expectedSize: 4,
+    currentSensors: [],
   } as DataState,
   reducers: {
     unpacketize: (state, action: PayloadAction<number[]>) => {
-      console.log("unpacketize", action.payload);
+      let packet = action.payload;
+      const ackCode = (packet[0] << 8) + packet[1] - startCode;
+
+      packet = packet.slice(2, -8); // remove start and end code
+
+      if (ackCode === 0x01 || ackCode === 0x03) {
+        state.isSendingData = true;
+      }
+      if (ackCode === 0x00 || ackCode === 0x02) {
+        state.isSendingData = false;
+      }
+
+      // if 0x02, then parse data but send settings
+      // if 0x03, then parse data and send data
+      if (ackCode === 0x02 || ackCode === 0x03) {
+        if (packet.length >= state.expectedSize) {
+          packet = packet.slice(0, state.expectedSize);
+
+          for (const sensorId of state.currentSensors) {
+            const sensorData = sensors[sensorId].values;
+            let values: number[] = [];
+
+            for (const value of sensorData) {
+              let view = new DataView(new ArrayBuffer(value.bytes));
+              for (let i = 0; i < value.bytes; i++) {
+                view.setUint8(i, packet[0]);
+                packet.shift();
+              }
+
+              if (value.type === "boolean") {
+                values.push(view.getUint8(0));
+              } else if (value.type === "float") {
+                if (value.bytes === 4) {
+                  values.push(view.getFloat32(0, true));
+                } else if (value.bytes === 8) {
+                  values.push(view.getFloat64(0, true));
+                }
+              } else if (value.type === "int") {
+                if (value.bytes === 2) {
+                  values.push(view.getInt16(0, true));
+                } else if (value.bytes === 4) {
+                  values.push(view.getInt32(0, true));
+                }
+              } else if (value.type === "uint") {
+                if (value.bytes === 2) {
+                  values.push(view.getUint16(0, true));
+                } else if (value.bytes === 4) {
+                  values.push(view.getUint32(0, true));
+                }
+              }
+            }
+
+            if (values.length === sensorData.length) {
+              if (sensorId in state.data) {
+                state.data[sensorId] = [values]
+              } else {
+                state.data[sensorId].push(values);
+              }
+            } else {
+              console.log("INVALID CONFIG") // TODO: handle this
+            }
+          }
+        } else {
+          console.log("INVALID PACKET") // TODO: handle this
+        }
+
+        // 0x00, then parse settings and send settings
+        // 0x01, then parse settings and send data
+      } else if (ackCode === 0x00 || ackCode === 0x01) {
+        console.log("Settings are being received");
+
+        // sets sensors from previous settings to disconnected
+        state.currentSensors = [];
+        state.expectedSize = 0;
+        state.isReceivingData = false;
+
+        if (packet.length % 3 === 0) {
+          for (let i = 0; i < packet.length; i += 3) {
+            const sensorId = packet[i] + (packet[i + 1] << 8);
+            
+            if (!(sensorId in sensors)) {
+              console.log("INVALID SENSOR ID") // TODO: handle this
+              continue;
+            }
+
+            let numBytes = sensors[sensorId].values.reduce((sum, i) => sum + i.bytes, 0);
+
+            if (numBytes !== packet[i + 2]) {
+              console.log("FAILED SIZE CHECK") // TODO: handle this
+              continue;
+            }
+  
+            state.currentSensors.push(sensorId);
+            state.expectedSize += numBytes;
+            state.isReceivingData = true;
+          }
+          console.log("Received settings of length: " + state.expectedSize);
+        } else {
+          console.log("INVALID PACKET") // TODO: handle this
+        }
+      }
     },
   },
 });
