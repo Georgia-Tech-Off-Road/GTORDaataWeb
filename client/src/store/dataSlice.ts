@@ -43,10 +43,10 @@ export const dataSlice = createSlice({
 
           for (const sensorId of state.currentSensors) {
             const sensorData = sensors[sensorId].values;
-            let values: number[] = [];
+            const values: number[] = [];
 
             for (const value of sensorData) {
-              let view = new DataView(new ArrayBuffer(value.bytes));
+              const view = new DataView(new ArrayBuffer(value.bytes));
               for (let i = 0; i < value.bytes; i++) {
                 view.setUint8(i, packet[0]);
                 packet.shift();
@@ -77,16 +77,16 @@ export const dataSlice = createSlice({
 
             if (values.length === sensorData.length) {
               if (sensorId in state.data) {
-                state.data[sensorId] = [values]
+                state.data[sensorId] = [values];
               } else {
                 state.data[sensorId].push(values);
               }
             } else {
-              console.log("INVALID CONFIG") // TODO: handle this
+              console.log("INVALID CONFIG"); // TODO: handle this
             }
           }
         } else {
-          console.log("INVALID PACKET") // TODO: handle this
+          console.log("INVALID PACKET"); // TODO: handle this
         }
 
         // 0x00, then parse settings and send settings
@@ -102,26 +102,29 @@ export const dataSlice = createSlice({
         if (packet.length % 3 === 0) {
           for (let i = 0; i < packet.length; i += 3) {
             const sensorId = packet[i] + (packet[i + 1] << 8);
-            
+
             if (!(sensorId in sensors)) {
-              console.log("INVALID SENSOR ID") // TODO: handle this
+              console.log("INVALID SENSOR ID"); // TODO: handle this
               continue;
             }
 
-            let numBytes = sensors[sensorId].values.reduce((sum, i) => sum + i.bytes, 0);
+            const numBytes = sensors[sensorId].values.reduce(
+              (sum, i) => sum + i.bytes,
+              0
+            );
 
             if (numBytes !== packet[i + 2]) {
-              console.log("FAILED SIZE CHECK") // TODO: handle this
+              console.log("FAILED SIZE CHECK"); // TODO: handle this
               continue;
             }
-  
+
             state.currentSensors.push(sensorId);
             state.expectedSize += numBytes;
             state.isReceivingData = true;
           }
           console.log("Received settings of length: " + state.expectedSize);
         } else {
-          console.log("INVALID PACKET") // TODO: handle this
+          console.log("INVALID PACKET"); // TODO: handle this
         }
       }
     },
