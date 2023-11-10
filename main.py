@@ -69,11 +69,18 @@ async def send_loop():
 
 
 async def handler(ws: WebSocketServerProtocol):
-  global websocket
+  global websocket, data_import
   websocket = ws
 
-  async for message in websocket:
-    await read_message(message)
+  try:
+    async for message in websocket:
+      await read_message(message)
+  finally:
+    websocket = None
+    if data_import is not None:
+      await data_import.close()
+      data_import = None
+    print("Connection closed, ready for new connection")
 
 
 async def main():
