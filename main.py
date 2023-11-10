@@ -23,7 +23,23 @@ async def set_input_mode(mode):
   if data_import is not None:
     await data_import.close()
   if mode is not None:
-    data_import = DataImport(mode, websocket)
+    data_import = DataImport(mode, send_packet_websocket)
+
+
+async def send_packet_websocket(packet):
+  if websocket is not None:
+    msg = {
+      'packet': packet,
+    }
+    try:
+      await websocket.send(json.dumps(msg))
+    except:
+      pass
+
+
+def send_packet_serial(packet):
+  if data_import is not None and data_import.teensy_ser is not None:
+    data_import.teensy_ser.write(bytes(packet))
 
 
 async def read_message(msg):
@@ -31,6 +47,8 @@ async def read_message(msg):
   print(data)
   if 'inputMode' in data:
     await set_input_mode(data['inputMode'])
+  if 'packet' in data:
+    send_packet_serial(data['packet'])
 
 
 async def send_loop():
@@ -41,7 +59,12 @@ async def send_loop():
         'ports': ports,
         'inputMode': get_input_mode(),
       }
-      await websocket.send(json.dumps(msg))
+      
+      try:
+        await websocket.send(json.dumps(msg))
+      except:
+        pass
+    
     await asyncio.sleep(2)
 
 

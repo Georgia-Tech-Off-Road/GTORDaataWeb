@@ -1,13 +1,12 @@
 import asyncio
-import json
 import serial
-from websockets.server import WebSocketServerProtocol
+from typing import Awaitable, Callable
 
 
 class DataImport:
-  def __init__(self, input_mode: dict, websocket: WebSocketServerProtocol):
+  def __init__(self, input_mode: dict, send: Callable[[list[int]], Awaitable[None]]):
     self.input_mode = input_mode
-    self.websocket = websocket
+    self.send = send
     self.teensy_ser = None
 
     self.start_code = [0xee, 0xe0]
@@ -22,20 +21,14 @@ class DataImport:
     print(f'Started data import with mode {input_mode}')
 
 
-  async def receive_packet(self):
-    self.packets_received += 1
-    msg = {
-      'packet': self.current_packet,
-    }
-    await self.websocket.send(json.dumps(msg))
-    print(f'Received packet {self.packets_received} of length {len(self.current_packet)}')
-
-
   async def read_data(self):
     while not self.stop_thread.is_set():
       if self.input_mode['name'] == 'FAKE':
         self.current_packet = self.start_code + [0x00, 0x00, 0x00, 0x00, 0x00, 0x00] + self.end_code
-        await self.receive_packet()
+
+        self.packets_received += 1
+        await self.send(self.current_packet)
+
         await asyncio.sleep(2.0)
 
       elif self.input_mode['name'] == 'BIN':  
@@ -53,8 +46,9 @@ class DataImport:
               self.current_packet.append(i)
 
               if len(self.current_packet) >= len(self.end_code) and self.current_packet[-len(self.end_code):] == self.end_code:
-                if self.current_packet[:len(self.start_code)] == self.start_code:
-                  await self.receive_packet()
+                if len(self.current_packet) > len(self.end_code):
+                  self.packets_received += 1
+                  await self.send(self.current_packet)
 
                 self.current_packet.clear()
         except serial.SerialException:

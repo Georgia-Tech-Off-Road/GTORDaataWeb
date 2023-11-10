@@ -2,14 +2,20 @@ import { PayloadAction, createSlice } from "@reduxjs/toolkit";
 import { Data } from "../types";
 import { sensors } from "../util/sensors";
 
-const startCode = 0xeee0;
+const startCode = [0xee, 0xe0];
+const endCode = [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xf0];
 
 export interface DataState {
   data: Data;
+
   isSendingData: boolean;
   isReceivingData: boolean;
   expectedSize: number;
+
   currentSensors: number[];
+  outputSensors: number[];
+
+  outboundPacket: number[];
 }
 
 export const dataSlice = createSlice({
@@ -20,11 +26,15 @@ export const dataSlice = createSlice({
     isReceivingData: false,
     expectedSize: 4,
     currentSensors: [],
+    outputSensors: [],
+    outboundPacket: [],
   } as DataState,
   reducers: {
     unpacketize: (state, action: PayloadAction<number[]>) => {
       let packet = action.payload;
-      const ackCode = (packet[0] << 8) + packet[1] - startCode;
+
+      const ackOffset = (startCode[0] << 8) + startCode[1];
+      const ackCode = (packet[0] << 8) + packet[1] - ackOffset;
 
       packet = packet.slice(2, -8); // remove start and end code
 
@@ -92,8 +102,6 @@ export const dataSlice = createSlice({
         // 0x00, then parse settings and send settings
         // 0x01, then parse settings and send data
       } else if (ackCode === 0x00 || ackCode === 0x01) {
-        console.log("Settings are being received");
-
         // sets sensors from previous settings to disconnected
         state.currentSensors = [];
         state.expectedSize = 0;
@@ -128,9 +136,33 @@ export const dataSlice = createSlice({
         }
       }
     },
+    packetize: (state) => {
+      if (state.isSendingData) {
+        const packet = [...startCode];
+
+        // TODO
+
+        packet.push(...endCode);
+        packet[1] += state.isReceivingData ? 3 : 2;
+        state.outboundPacket = packet;
+      } else {
+        const packet = [...startCode];
+
+        for (const sensorId of state.outputSensors) {
+          const sensorData = sensors[sensorId].values;
+          const numBytes = sensorData.reduce((sum, i) => sum + i.bytes, 0);
+
+          packet.push(sensorId & 0xff, (sensorId >> 8) & 0xff, numBytes);
+        }
+
+        packet.push(...endCode);
+        packet[1] += state.isReceivingData ? 1 : 0;
+        state.outboundPacket = packet;
+      }
+    },
   },
 });
 
-export const { unpacketize } = dataSlice.actions;
+export const { unpacketize, packetize } = dataSlice.actions;
 
 export default dataSlice.reducer;

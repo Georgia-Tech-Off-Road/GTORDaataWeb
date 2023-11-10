@@ -8,6 +8,7 @@ import {
   Typography,
 } from "@mui/material";
 import config from "../../../config.json";
+import { useAppSelector } from "../hooks";
 
 type SensorType = keyof typeof config.types;
 
@@ -25,6 +26,8 @@ export function Home() {
       datatype: d,
     }));
   });
+
+  const currentSensors = useAppSelector((state) => state.data.currentSensors);
 
   const statusChips = [
     <Chip label="Disconnected" color="error" />,
@@ -80,6 +83,10 @@ export function Home() {
           <Typography variant="h6" marginBottom={1.5}>
             Data
           </Typography>
+
+          {currentSensors.map((i) => (
+            <p key={i}>{i}</p>
+          ))}
         </Paper>
       </Grid>
     </Grid>

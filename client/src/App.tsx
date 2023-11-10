@@ -5,13 +5,15 @@ import { NavBar } from "./components/NavBar";
 import { useAppDispatch, useAppSelector } from "./hooks";
 import { ServerMessage } from "./types";
 import { setInputMode, setPorts } from "./store/inputSlice";
-import { unpacketize } from "./store/dataSlice";
+import { packetize, unpacketize } from "./store/dataSlice";
 
 function App() {
   const [ready, setReady] = useState(false);
 
   const inputMode = useAppSelector((state) => state.input.inputMode);
   const ports = useAppSelector((state) => state.input.ports);
+  const outboundPacket = useAppSelector((state) => state.data.outboundPacket);
+
   const dispatch = useAppDispatch();
 
   const ws = useMemo(() => {
@@ -28,7 +30,15 @@ function App() {
     if (ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({ inputMode }));
     }
-  }, [inputMode, ws, ws.readyState]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inputMode]);
+
+  useEffect(() => {
+    if (ws.readyState === WebSocket.OPEN && ports.length > 0) {
+      ws.send(JSON.stringify({ packet: outboundPacket }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [outboundPacket]);
 
   useEffect(() => {
     ws.onmessage = (e) => {
@@ -47,6 +57,7 @@ function App() {
 
       if (data.packet) {
         dispatch(unpacketize(data.packet));
+        dispatch(packetize());
       }
     };
   }, [dispatch, inputMode, ports, ws]);
