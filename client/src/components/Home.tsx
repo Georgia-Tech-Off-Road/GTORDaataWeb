@@ -9,6 +9,7 @@ import {
 } from "@mui/material";
 import config from "../../../config.json";
 import { useAppSelector } from "../hooks";
+import { useEffect } from "react";
 
 type SensorType = keyof typeof config.types;
 
@@ -28,6 +29,10 @@ export function Home() {
   });
 
   const currentSensors = useAppSelector((state) => state.data.currentSensors);
+
+  const data = useAppSelector((state) => state.data.data);
+
+  useEffect(() => console.log(data), [data]);
 
   const statusChips = [
     <Chip label="Disconnected" color="error" />,

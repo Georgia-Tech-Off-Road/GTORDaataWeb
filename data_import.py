@@ -1,5 +1,7 @@
 import asyncio
+import random
 import serial
+import struct
 from typing import Awaitable, Callable
 
 
@@ -20,16 +22,31 @@ class DataImport:
 
     print(f'Started data import with mode {input_mode}')
 
+  
+  def gen_fake_packet(self):
+    packet = []
+    if self.packets_received < 5:
+      settings = [0x69, 0x00, 0x04, 0xd6, 0x00, 0x06, 0x30, 0x01, 0x04]
+      packet = self.start_code + settings + self.end_code
+    else:
+      time = (self.packets_received * 500000).to_bytes(4, 'little')
+      val1 = random.randint(1, 1000).to_bytes(4, 'little')
+      val2 = random.randint(1, 1000).to_bytes(2, 'little')
+      val3 = struct.pack('f', random.uniform(100.0, 1000.0))
+      packet = self.start_code + list(time) + list(val1) + list(val2) + list(val3) + self.end_code
+      packet[1] += 2
+    return packet
+
 
   async def read_data(self):
     while not self.stop_thread.is_set():
       if self.input_mode['name'] == 'FAKE':
-        self.current_packet = self.start_code + [0x00, 0x00, 0x00, 0x00, 0x00, 0x00] + self.end_code
+        self.current_packet = self.gen_fake_packet()
 
         self.packets_received += 1
         await self.send(self.current_packet)
 
-        await asyncio.sleep(2.0)
+        await asyncio.sleep(0.5)
 
       elif self.input_mode['name'] == 'BIN':  
         pass

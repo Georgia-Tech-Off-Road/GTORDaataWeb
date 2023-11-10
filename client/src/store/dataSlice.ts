@@ -87,9 +87,9 @@ export const dataSlice = createSlice({
 
             if (values.length === sensorData.length) {
               if (sensorId in state.data) {
-                state.data[sensorId] = [values];
-              } else {
                 state.data[sensorId].push(values);
+              } else {
+                state.data[sensorId] = [values];
               }
             } else {
               console.log("INVALID CONFIG"); // TODO: handle this
@@ -134,6 +134,8 @@ export const dataSlice = createSlice({
         } else {
           console.log("INVALID PACKET"); // TODO: handle this
         }
+      } else {
+        console.log("INVALID ACK CODE", ackCode); // TODO: handle this
       }
     },
     packetize: (state) => {
