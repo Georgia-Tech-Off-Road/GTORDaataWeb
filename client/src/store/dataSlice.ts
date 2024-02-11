@@ -30,8 +30,8 @@ export const dataSlice = createSlice({
     outboundPacket: [],
   } as DataState,
   reducers: {
-    unpacketize: (state, action: PayloadAction<number[]>) => {
-      let packet = action.payload;
+    unpacketize: (state: DataState, action: PayloadAction<number[]>) => {
+      let packet: number[] = action.payload;
 
       const ackOffset = (startCode[0] << 8) + startCode[1];
       const ackCode = (packet[0] << 8) + packet[1] - ackOffset;
@@ -92,11 +92,11 @@ export const dataSlice = createSlice({
                 state.data[sensorId] = [values];
               }
             } else {
-              console.log("INVALID CONFIG"); // TODO: handle this
+              console.log("INVALID CONFIG"); // TODO: bug in value parsing
             }
           }
         } else {
-          console.log("INVALID PACKET"); // TODO: handle this
+          console.log("INVALID PACKET"); // TODO: handle this : differing packet length
         }
 
         // 0x00, then parse settings and send settings
@@ -112,7 +112,7 @@ export const dataSlice = createSlice({
             const sensorId = packet[i] + (packet[i + 1] << 8);
 
             if (!(sensorId in sensors)) {
-              console.log("INVALID SENSOR ID"); // TODO: handle this
+              console.log("INVALID SENSOR ID"); // TODO:handle this
               continue;
             }
 
@@ -122,7 +122,7 @@ export const dataSlice = createSlice({
             );
 
             if (numBytes !== packet[i + 2]) {
-              console.log("FAILED SIZE CHECK"); // TODO: handle this
+              console.log("FAILED SIZE CHECK"); // TODO:handle this
               continue;
             }
 
@@ -132,13 +132,13 @@ export const dataSlice = createSlice({
           }
           console.log("Received settings of length: " + state.expectedSize);
         } else {
-          console.log("INVALID PACKET"); // TODO: handle this
+          console.log("INVALID PACKET"); // TODO:handle this
         }
       } else {
-        console.log("INVALID ACK CODE", ackCode); // TODO: handle this
+        console.log("INVALID ACK CODE", ackCode); // TODO:handle this
       }
     },
-    packetize: (state) => {
+    packetize: (state: DataState) => {
       if (state.isSendingData) {
         const packet = [...startCode];
 
