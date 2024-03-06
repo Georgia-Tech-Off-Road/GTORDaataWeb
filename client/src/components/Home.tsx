@@ -59,15 +59,6 @@ export function Home() {
     <Chip label="Connected" color="success" />,
   ];
 
-  const SensorGraphComponent = ({ sensorName, datatype }) => {
-    return (
-      <div>
-        <h3>{sensorName}</h3>
-        <p>Datatype: {datatype}</p>
-        {/*idk actual stuff goes here*/}
-      </div>
-    );
-  };
   return (
     <Grid
       container
