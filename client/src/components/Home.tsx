@@ -8,7 +8,7 @@ import {
   Typography,
   Button,
 } from "@mui/material";
-import { useContext, useEffect, useState } from "react"; // Make sure useState is imported
+import { useContext, useEffect, useState } from "react";
 import { AppContext } from "../AppContext";
 import config from "../../../config.json";
 import TestComponent from "./TestComponent";
@@ -23,15 +23,12 @@ const paperSx: SxProps = {
 };
 
 export function Home() {
+  const [selectedSensor, setSelectedSensor] = useState<string | null>(null); // State to track the selected sensor
 
-  const [showComponent, setShowComponent] = useState(false);
-
-  const handleClick = () => {
-    setShowComponent(true);
+  const { inputMode, statusCode, graphs, setGraphs, graphData } = useContext(AppContext);
+  const handleClick = (sensorName:string) => {
+    setSelectedSensor(sensorName); // Set the selected sensor name
   };
-
-  const { inputMode, statusCode, graphs, setGraphs, graphData } =
-    useContext(AppContext);
 
   function selectSensor(idx: number, on: boolean) {
     if (on) {
@@ -44,18 +41,17 @@ export function Home() {
   }
 
   const sensorValues = config.sensors.flatMap((sensor) => {
-    return config.types[sensor.type as SensorType].datatypes.map((d) => ({
+    return config.types[sensor.type as SensorType].datatypes.map((datatype) => ({
       name: sensor.name,
-      datatype: d,
+      datatype: datatype,
     }));
   });
 
   useEffect(() => {
     setGraphs([]);
+    // This is to reset graphs when the inputMode changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inputMode]);
-
-  console.log(graphData);
 
   const statusChips = [
     <Chip label="Disconnected" color="error" />,
@@ -116,7 +112,6 @@ export function Home() {
         </Paper>  
       </Grid>
 
-
       <Grid item xs={3}>
         <Paper sx={paperSx}>
           <Stack
@@ -128,7 +123,7 @@ export function Home() {
             <Typography variant="h6">Buttons ! ! ! ! ! ! </Typography>
           </Stack>
           <Typography variant="h6" marginBottom={1.5}>
-            Sensors with buttons ! ! ! ! ! 
+            Sensors with buttons
           </Typography>
           {sensorValues.map((sensor, i) => (
             <Stack
@@ -137,25 +132,21 @@ export function Home() {
               marginLeft={-0.5}
               key={i}
             >
-              <Button onClick={handleClick}>Load TestComponent</Button>
+              <Button onClick={() => handleClick(sensor.name)}>{sensor.name}</Button>
             </Stack>
           ))}
         </Paper>
       </Grid>
 
-
       <Grid item xs={6}>
         <Paper sx={paperSx}>
-        <Typography variant="h6" marginBottom={1.5}>
-          Data
-        </Typography>
-        {graphs.map((idx, i) => (
+          <Typography variant="h6" marginBottom={1.5}>
+            Data Visualization
+            {graphs.map((idx, i) => (
             <p key={i}>{sensorValues[idx].name}</p> // temporary placeholder for graphs
           ))}
-                  <div>
-          {showComponent && TestComponent }
-          {/* You can add more components here to fill the grid if needed */}
-        </div>
+          </Typography>
+          {selectedSensor && <TestComponent sensorName={selectedSensor} />}
         </Paper>
       </Grid>
     </Grid>
